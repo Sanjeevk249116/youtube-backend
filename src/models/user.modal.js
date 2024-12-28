@@ -2,7 +2,8 @@ const mongoose = require("mongoose");
 var jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 require("dotenv").config();
-const userScehma = new mongoose.Schema(
+
+const userSchema = new mongoose.Schema(
   {
     userName: {
       type: String,
@@ -35,11 +36,11 @@ const userScehma = new mongoose.Schema(
     watchHistory: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "VideoMadel",
+        ref: "VideoModel",
       },
     ],
     password: {
-      type: true,
+      type: String, 
       required: [true, "Password is required"],
     },
     refreshToken: { type: String },
@@ -47,17 +48,17 @@ const userScehma = new mongoose.Schema(
   { timestamps: true }
 );
 
-userScehma.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-  this.password = bcrypt.hash(thi.password, 8);
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next(); // use for not change password every time
+  this.password = await bcrypt.hash(this.password, 8);  
   next();
 });
 
-userScehma.methods.isPasswordCorrect = async function (password) {
-  await bcrypt.compare(password, this.password);
+userSchema.methods.isPasswordCorrect = async function (password) {
+  return await bcrypt.compare(password, this.password);
 };
 
-userScehma.methods.generateAccessToken = function () {
+userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     {
       _id: this._id,
@@ -70,14 +71,15 @@ userScehma.methods.generateAccessToken = function () {
   );
 };
 
-userScehma.methods.generateRefreshToken = function () {
+userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {
       _id: this._id,
     },
     process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: process.env.REFESH_TOKEN_EXPRERY }
+    { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }  
   );
 };
 
-export const UserModal = mongoose.model("UserModal", userScehma);
+// Corrected export statement to CommonJS syntax
+module.exports = mongoose.model("UserModel", userSchema);
