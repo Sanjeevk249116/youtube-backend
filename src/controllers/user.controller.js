@@ -4,6 +4,19 @@ const { UserModel } = require("../models/user.modal");
 const { uploadOnCloudinary } = require("../utils/cloudinary.js");
 const { apiResponse } = require("../utils/apiResponse");
 
+const refershAndGenerateToken = async (UserId) => {
+  try {
+    const user = await UserModel.findOne(UserId);
+    const refershToken = user.generateRefreshToken();
+    const acceshToken = user.generateAccessToken();
+    user.refreshToken = refershToken;
+    user.save({ validateBeforeSave: false });
+    return { refershToken, acceshToken };
+  } catch (error) {
+    throw new ApiError(500, "Internal server error while generating token");
+  }
+};
+
 const registerUser = asyncHandler(async (req, res) => {
   const { userName, email, fullName, password } = req.body;
   if (
@@ -20,9 +33,8 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   const avatarLocalPath = req.files?.avatar[0]?.path;
-  const coverImageLocalPath = req.files?.coverImage?.length > 0
-    ? req.files?.coverImage[0]?.path
-    : "";
+  const coverImageLocalPath =
+    req.files?.coverImage?.length > 0 ? req.files?.coverImage[0]?.path : "";
 
   if (!avatarLocalPath) {
     throw new ApiError(400, "Files is required");
@@ -55,4 +67,54 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, createdUser, "user registration successfully"));
 });
 
-module.exports = { registerUser };
+const loginUser = asyncHandler(async (req, res) => {
+  const { email, password, userName } = req.body;
+
+  if (userName === "" || email === "") {
+    throw new ApiError(400, "userName and password are required");
+  }
+  const existUser = await UserModel.findOne({ $or: [{ userName }, { email }] });
+
+  if (!existUser) {
+    throw new ApiError(400, "User does not exist");
+  }
+
+  const isPasswordValid = await existUser.isPasswordCorrect(password);
+  if (!isPasswordValid) {
+    throw new ApiError(400, "Invalid password");
+  }
+
+  const { acceshToken, refershToken } = await refershAndGenerateToken(
+    existUser?._id
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  return res
+    .status(200)
+    .cookie("accessToken", acceshToken, options)
+    .cookie("refreshToken", refershToken, options)
+    .json(new apiResponse(200, refershToken));
+});
+
+const logOutUser = asyncHandler(async (req, res) => {
+  const user = await UserModel.findByIdAndUpdate(
+    req.user?._id,
+    { $unset: { refreshToken: "" } }, // Explicitly remove the field
+    { new: true } // Return the updated document
+  );
+  console.log("user109", user);
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new apiResponse(200, "user logout successfully"));
+});
+
+module.exports = { registerUser, loginUser, logOutUser };
