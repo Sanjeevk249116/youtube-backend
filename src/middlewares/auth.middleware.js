@@ -1,5 +1,6 @@
 const { asyncHandler } = require("../utils/asyncHandler");
 const { UserModel } = require("../models/user.modal");
+const { ApiError } = require("../utils/apiError");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
@@ -10,10 +11,7 @@ const verifyJwtUser = asyncHandler(async (req, res, next) => {
     if (!token) {
       throw new Error(401, "Unauthorized user request");
     }
-    if (!process.env.REFRESH_TOKEN_SECRET) {
-      console.error("Missing REFRESH_TOKEN_SECRET in environment variables");
-    }
-   
+
     const decodedUserToken = await jwt.verify(
       token,
       process.env.REFRESH_TOKEN_SECRET
@@ -31,7 +29,7 @@ const verifyJwtUser = asyncHandler(async (req, res, next) => {
     next();
   } catch (error) {
     console.error("JWT Verification Error:", error.message);
-    throw new Error(401, error?.message || "Invalid access token");
+    throw new ApiError(401,  "Invalid access tokens");
   }
 });
 

@@ -3,6 +3,7 @@ const { ApiError } = require("../utils/apiError");
 const { UserModel } = require("../models/user.modal");
 const { uploadOnCloudinary } = require("../utils/cloudinary.js");
 const { apiResponse } = require("../utils/apiResponse");
+const jwt = require("jsonwebtoken");
 
 const refershAndGenerateToken = async (UserId) => {
   try {
@@ -105,7 +106,7 @@ const logOutUser = asyncHandler(async (req, res) => {
     { $unset: { refreshToken: "" } }, // Explicitly remove the field
     { new: true } // Return the updated document
   );
-  console.log("user109", user);
+
   const options = {
     httpOnly: true,
     secure: true,
@@ -117,4 +118,43 @@ const logOutUser = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, "user logout successfully"));
 });
 
-module.exports = { registerUser, loginUser, logOutUser };
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  try {
+    const incommingRefreshToken =
+      req.cookies?.refreshToken || res.header("auth-token");
+      
+    if (!incommingRefreshToken) {
+      throw new Error(401, "Unauthorized person");
+    }
+
+    const decodedToken = jwt.verify(
+      incommingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+    const user = await UserModel.findById(decodedToken?._id);
+    if (!user) {
+      throw new ApiError(401, "Invalid Refresh token");
+    }
+
+    if (incommingRefreshToken !== user?.refreshToken) {
+      throw new Error(401, "expire token");
+    }
+    const { acceshToken, refershToken } = await refershAndGenerateToken(
+      decodedToken?._id
+    );
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    return res
+      .status(200)
+      .cookie("accessToken", acceshToken, options)
+      .cookie("refreshToken", refershToken, options)
+      .json(new apiResponse(200, user));
+  } catch (error) {
+    throw new Error(401, "Unauthorized person or token expire");
+  }
+});
+
+module.exports = { registerUser, loginUser, logOutUser,refreshAccessToken };
