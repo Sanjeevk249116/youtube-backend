@@ -122,7 +122,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   try {
     const incommingRefreshToken =
       req.cookies?.refreshToken || res.header("auth-token");
-      
+
     if (!incommingRefreshToken) {
       throw new Error(401, "Unauthorized person");
     }
@@ -157,4 +157,91 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { registerUser, loginUser, logOutUser,refreshAccessToken };
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { password, oldPassword } = req.body;
+  const user = await UserModel.findById(req.user?._id);
+
+  const checkOldPassword = await user.isPasswordCorrect(oldPassword);
+  if (!checkOldPassword) {
+    throw new ApiError(400, "Invalid old Password");
+  }
+
+  user.password = password;
+  await user.save({ validateBeforeSave: false });
+  return res
+    .status(200)
+    .json(new apiResponse(200, "Password change successfully"));
+});
+
+const profileDetails = asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user) {
+    throw new Error(400, "Profile does not exist");
+  }
+
+  return res.status(200).json(new apiResponse(200, user));
+});
+
+const accountUpdateAccount = asyncHandler(async (req, res) => {
+  const { fullName, email } = req.body;
+  if (fullName === "" || email === "") {
+    throw new ApiError(400, "All field are required");
+  }
+
+  const user = await UserModel.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        //user to update database
+        fullName,
+        email,
+      },
+    },
+    {
+      new: true, //use to return update data
+    }
+  ).select("-password -refreshToken");
+
+  return res.status(200).json(new apiResponse(200, user));
+});
+
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "Avatar file is missing");
+  }
+
+  const avatarUpdated = await uploadOnCloudinary(avatarLocalPath);
+
+  if (!avatarUpdated?.url) {
+    throw new ApiError(500, "Failed to upload image");
+  }
+
+  const user = await UserModel.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatarUpdated.url,
+      },
+    },
+    {
+      new: true,
+    }
+  ).select("-password -refreshToken");
+
+  return res
+    .status(200)
+    .json(new apiResponse(200, user, "Profile Update successfully"));
+});
+
+module.exports = {
+  registerUser,
+  loginUser,
+  logOutUser,
+  refreshAccessToken,
+  changeCurrentPassword,
+  profileDetails,
+  accountUpdateAccount,
+  updateUserAvatar
+};
