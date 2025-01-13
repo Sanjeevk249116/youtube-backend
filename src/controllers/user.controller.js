@@ -20,7 +20,9 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   const avatarLocalPath = req.files?.avatar[0]?.path;
-  const coverImageLocalPath = req.files?.coverImage[0]?.path;
+  const coverImageLocalPath = req.files?.coverImage?.length > 0
+    ? req.files?.coverImage[0]?.path
+    : "";
 
   if (!avatarLocalPath) {
     throw new ApiError(400, "Files is required");
@@ -36,10 +38,11 @@ const registerUser = asyncHandler(async (req, res) => {
     avatar: avatar?.url,
     coverImage: coverImage?.url || "",
     email,
+    password,
     userName: userName?.toLowerCase(),
   });
 
-  const createdUser = UserModel?.findOne(user?._id).select(
+  const createdUser = await UserModel?.findOne(user?._id).select(
     "-password -refreshToken"
   );
 

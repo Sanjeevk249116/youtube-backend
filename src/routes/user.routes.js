@@ -4,7 +4,7 @@ const { registerUser } = require("../controllers/user.controller");
 const { upload } = require("../middlewares/multer.middleware");
 
 router.post(
-  "/register",
+  "/create/register",
   upload.fields([
     {
       name: "avatar",

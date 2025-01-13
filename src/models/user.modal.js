@@ -40,7 +40,7 @@ const userSchema = new mongoose.Schema(
       },
     ],
     password: {
-      type: String, 
+      type: String,
       required: [true, "Password is required"],
     },
     refreshToken: { type: String },
@@ -50,7 +50,7 @@ const userSchema = new mongoose.Schema(
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next(); // use for not change password every time
-  this.password = await bcrypt.hash(this.password, 8);  
+  this.password = await bcrypt.hash(this.password, 8);
   next();
 });
 
@@ -77,9 +77,11 @@ userSchema.methods.generateRefreshToken = function () {
       _id: this._id,
     },
     process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }  
+    { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }
   );
 };
 
 // Corrected export statement to CommonJS syntax
-module.exports = mongoose.model("UserModel", userSchema);
+
+const UserModel = mongoose.model("UserModel", userSchema);
+module.exports = { UserModel };
